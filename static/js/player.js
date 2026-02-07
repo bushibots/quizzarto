@@ -44,3 +44,38 @@ function submitAnswer(idx) {
         b.style.opacity = "0.3";
     });
 }
+
+// Add these to the bottom of player.js
+
+socket.on('show_results', (data) => {
+    const status = document.getElementById('status');
+    if (status) {
+        status.innerText = "ROUND COMPLETE";
+        status.classList.add('text-cyan-400');
+    }
+});
+
+socket.on('game_over', (data) => {
+    const main = document.querySelector('body');
+    // Find this player's specific rank in the leaderboard
+    const myRank = data.leaderboard.findIndex(p => p.nickname === myNickname) + 1;
+    const myScore = data.leaderboard.find(p => p.nickname === myNickname)?.score || 0;
+
+    main.innerHTML = `
+        <div class="min-h-screen flex flex-col items-center justify-center p-6 text-center">
+            <h1 class="text-4xl font-black mb-2 italic">DISCONNECTED</h1>
+            <p class="text-slate-500 uppercase tracking-[0.3em] mb-12">Session Finalized</p>
+            
+            <div class="border-4 border-cyan-500 p-8 mb-8">
+                <p class="text-xs uppercase tracking-widest text-cyan-500 mb-2">Rank</p>
+                <h2 class="text-7xl font-black">#${myRank}</h2>
+            </div>
+            
+            <p class="text-xl font-bold mb-12">SCORE: ${myScore}</p>
+            
+            <button onclick="location.reload()" class="w-full max-w-xs bg-white text-black py-4 font-black uppercase tracking-widest">
+                Re-Initialize
+            </button>
+        </div>
+    `;
+});

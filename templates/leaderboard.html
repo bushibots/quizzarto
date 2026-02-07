@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-12 min-h-screen max-w-4xl mx-auto">
+    <div class="text-center mb-16">
+        <h1 class="text-5xl font-black italic tracking-tighter mb-2">
+            HALL OF <span class="text-cyan-500">RECORDS</span>
+        </h1>
+        <p class="text-slate-500 uppercase tracking-[0.4em] text-sm">Active Cycle: {{ month }}</p>
+    </div>
+
+    <div class="space-y-4">
+        {% for nickname, total in scores %}
+        <div class="flex items-center justify-between p-6 border-l-4 border-cyan-500 bg-slate-900/50 backdrop-blur-sm">
+            <div class="flex items-center gap-6">
+                <span class="text-3xl font-black text-slate-800">#{{ loop.index }}</span>
+                <span class="text-2xl font-bold uppercase tracking-tight">{{ nickname }}</span>
+            </div>
+            <div class="text-right">
+                <p class="text-[10px] text-slate-500 uppercase tracking-widest">Aggregate Points</p>
+                <span class="text-3xl font-black text-cyan-400">{{ total }}</span>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center p-20 border-2 border-dashed border-slate-800">
+            <p class="text-slate-600 italic">No records found for this cycle yet.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="mt-12 text-center">
+        <a href="/" class="text-sm font-bold border-b border-white hover:text-cyan-500 hover:border-cyan-500 transition-all pb-1">
+            RETURN TO TERMINAL
+        </a>
+    </div>
+</div>
+{% endblock %}
