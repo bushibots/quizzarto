@@ -68,6 +68,8 @@ def register():
         )
         db.session.add(new_user)
         db.session.commit()
+        session['user_id'] = new_user.id
+        session['nickname'] = new_user.nickname
         return redirect(url_for('index'))
     
     return render_template('register.html')
@@ -168,25 +170,25 @@ def handle_start(pin):
         room["state"] = "FINAL"
         leaderboard_data = get_leaderboard(pin)
 
-        # --- NEW: SAVE TO DATABASE ---
+    # --- NEW: SAVE TO DATABASE ---
         current_month = datetime.utcnow().strftime('%Y-%m') # e.g., "2026-02"
 
-        for entry in leaderboard_data:
-            # Find the user in the DB by nickname
-            user = User.query.filter_by(nickname=entry['nickname']).first()
-            if user and not user.is_guest:
-                # Add score to their permanent record
-                new_score = Score(
-                    user_id=user.id,
-                    points=entry['score'],
-                    month_year=current_month
-                )
-                db.session.add(new_score)
+    for entry in leaderboard_data:
+        # Find the user in the DB by nickname
+        user = User.query.filter_by(nickname=entry['nickname']).first()
+        if user and not user.is_guest:
+            # Add score to their permanent record
+            new_score = Score(
+                user_id=user.id,
+                points=entry['score'],
+                month_year=current_month
+            )
+            db.session.add(new_score)
 
-        db.session.commit()
-        # -----------------------------
+    db.session.commit()
+    # -----------------------------
 
-        emit('game_over', {"leaderboard": leaderboard_data}, to=pin)
+    emit('game_over', {"leaderboard": leaderboard_data}, to=pin)
 
 def run_timer(pin, seconds):
     for i in range(seconds, -1, -1):

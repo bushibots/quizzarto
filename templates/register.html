@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col items-center justify-center w-full min-h-screen p-6 relative overflow-hidden">
+    <div class="absolute top-[-20%] left-[-20%] w-[50%] h-[50%] bg-cyan-500/5 blur-[100px] rounded-full pointer-events-none"></div>
+
+    <div class="w-full max-w-md relative z-10 border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-md">
+        <h1 class="text-3xl font-black text-center mb-8 italic tracking-tighter">
+            CREATE <span class="text-cyan-500">IDENTITY</span>
+        </h1>
+        
+        <form action="/register" method="POST" class="space-y-6">
+            <div>
+                <input type="text" name="nickname" placeholder="NICKNAME" required 
+                       class="w-full bg-transparent border-b border-slate-700 p-3 outline-none focus:border-cyan-500 transition-colors text-white font-bold">
+            </div>
+            <div>
+                <input type="email" name="email" placeholder="EMAIL (MANDATORY)" required 
+                       class="w-full bg-transparent border-b border-slate-700 p-3 outline-none focus:border-cyan-500 transition-colors text-white">
+            </div>
+            <div>
+                <input type="text" name="phone" placeholder="PHONE (OPTIONAL)" 
+                       class="w-full bg-transparent border-b border-slate-700 p-3 outline-none focus:border-cyan-500 transition-colors text-white">
+            </div>
+            <div>
+                <input type="password" name="password" placeholder="PASSWORD" required 
+                       class="w-full bg-transparent border-b border-slate-700 p-3 outline-none focus:border-cyan-500 transition-colors text-white">
+            </div>
+            
+            <button type="submit" class="w-full bg-cyan-500 text-slate-950 font-black py-4 uppercase tracking-[0.2em] hover:bg-white transition-all shadow-lg">
+                Register Student
+            </button>
+        </form>
+        <p class="mt-6 text-center text-xs text-slate-500">
+            <a href="/" class="hover:text-cyan-400">Back to Quick Join</a>
+        </p>
+    </div>
+</div>
+{% endblock %}
