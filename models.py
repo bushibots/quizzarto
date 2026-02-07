@@ -10,6 +10,7 @@ class User(db.Model):
     email = db.Column(db.String(120), unique=True, nullable=True) # Mandatory for records
     phone = db.Column(db.String(20), nullable=True)
     password = db.Column(db.String(100), nullable=True)
+    is_host = db.Column(db.Boolean, default=False) # NEW: Distinguishes Coaches from Students
     is_guest = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     scores = db.relationship('Score', backref='user', lazy=True)

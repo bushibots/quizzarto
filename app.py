@@ -6,12 +6,15 @@ import random
 import string
 from models import db, User, Lobby, Score # Import from your new file
 from werkzeug.security import generate_password_hash, check_password_hash
+import os  # NEW: For environment variables
+from flask import Flask, render_template, request, redirect, session, url_for
+# ... rest of imports ...
 
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'quizzarto_cyber_secret'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///quizzarto.db'
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'quizzarto_cyber_secret')
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///quizzarto.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)
@@ -89,21 +92,71 @@ def login():
 
 @app.route('/host')
 def host():
-    # Generate a unique 4-digit PIN
-    pin = ''.join(random.choices(string.digits, k=4))
+    # 1. Check if the user is logged in as a Coach
+    if not session.get('user_id') or not session.get('is_host'):
+        return redirect(url_for('host_auth')) # Redirect to host login if not authenticated
+
+    user_id = session['user_id']
     
-    # Ensure the PIN is unique among active games
-    while pin in active_games:
+    # 2. Look for an existing permanent PIN for this host
+    existing_lobby = Lobby.query.filter_by(host_id=user_id, is_active=True).first()
+    
+    if existing_lobby:
+        pin = existing_lobby.pin
+    else:
+        # 3. Generate a new permanent PIN if they don't have one
         pin = ''.join(random.choices(string.digits, k=4))
-        
-    # Initialize the game state as soon as the host loads the page
-    active_games[pin] = {
-        "players": [], 
-        "current_q": -1, 
-        "state": "LOBBY",
-        "scores": {} 
-    }
+        while Lobby.query.filter_by(pin=pin).first():
+            pin = ''.join(random.choices(string.digits, k=4))
+            
+        new_lobby = Lobby(pin=pin, host_id=user_id)
+        db.session.add(new_lobby)
+        db.session.commit()
+
+    # 4. Initialize the live game state in memory
+    if pin not in active_games:
+        active_games[pin] = {
+            "players": [], 
+            "current_q": -1, 
+            "state": "LOBBY",
+            "scores": {} 
+        }
+    
     return render_template('host.html', pin=pin)
+
+@app.route('/host/auth', methods=['GET', 'POST'])
+def host_auth():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        # This handles both Register and Login for simplicity in this portal
+        user = User.query.filter_by(email=email).first()
+
+        if user:
+            # LOGIN logic
+            if check_password_hash(user.password, password) and user.is_host:
+                session['user_id'] = user.id
+                session['nickname'] = user.nickname
+                session['is_host'] = True
+                return redirect(url_for('host'))
+        else:
+            # REGISTER logic (First time Coach signup)
+            nickname = request.form.get('nickname')
+            new_host = User(
+                nickname=nickname,
+                email=email,
+                password=generate_password_hash(password),
+                is_host=True,
+                is_guest=False
+            )
+            db.session.add(new_host)
+            db.session.commit()
+            session['user_id'] = new_host.id
+            session['nickname'] = new_host.nickname
+            session['is_host'] = True
+            return redirect(url_for('host'))
+            
+    return render_template('host_auth.html')
 # --- SOCKET LOGIC ---
 
 @socketio.on('join')
