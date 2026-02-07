@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="w-full max-w-4xl p-8">
+    <div class="flex justify-between items-end mb-12 border-b border-slate-800 pb-6">
+        <h1 class="text-4xl font-black italic tracking-tighter">DATA <span class="text-cyan-500">INPUT</span></h1>
+        <a href="/host" class="text-xs uppercase tracking-widest text-slate-500 hover:text-white">Cancel Operation</a>
+    </div>
+
+    <form action="/host/editor" method="POST" class="space-y-12">
+        <div class="bg-slate-900/50 p-6 border-l-4 border-cyan-500">
+            <label class="block text-[10px] uppercase tracking-[0.3em] text-cyan-500 mb-2">Quiz Title</label>
+            <input type="text" name="quiz_title" placeholder="E.G. DAILY PHYSICS RECAP" required 
+                   class="w-full bg-transparent text-2xl font-bold outline-none border-b border-slate-800 focus:border-white transition-colors">
+        </div>
+
+        <div id="questions-container" class="space-y-8">
+            <div class="p-8 border border-slate-800 bg-slate-900/30">
+                <p class="text-slate-500 text-xs mb-4">#1 QUESTION</p>
+                <input type="text" name="q_text[]" placeholder="Enter question text..." required class="w-full bg-transparent border-b border-slate-800 p-2 mb-6 outline-none focus:border-cyan-500">
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <input type="text" name="q_a[]" placeholder="Option A" required class="bg-slate-950 border border-slate-800 p-3 text-sm">
+                    <input type="text" name="q_b[]" placeholder="Option B" required class="bg-slate-950 border border-slate-800 p-3 text-sm">
+                    <input type="text" name="q_c[]" placeholder="Option C" required class="bg-slate-950 border border-slate-800 p-3 text-sm">
+                    <input type="text" name="q_d[]" placeholder="Option D" required class="bg-slate-950 border border-slate-800 p-3 text-sm">
+                </div>
+                
+                <select name="q_correct[]" class="mt-4 bg-slate-800 text-xs p-2 outline-none">
+                    <option value="0">Correct: A</option>
+                    <option value="1">Correct: B</option>
+                    <option value="2">Correct: C</option>
+                    <option value="3">Correct: D</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="w-full bg-cyan-500 text-slate-950 font-black py-5 uppercase tracking-widest hover:bg-white transition-all">
+            Compile and Save Question Set
+        </button>
+    </form>
+</div>
+{% endblock %}

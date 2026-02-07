@@ -4,7 +4,7 @@ import time
 import threading
 import random
 import string
-from models import db, User, Lobby, Score # Import from your new file
+from models import db, User, Lobby, Score, QuestionSet, Question# Import from your new file
 from werkzeug.security import generate_password_hash, check_password_hash
 import os  # NEW: For environment variables
 from flask import Flask, render_template, request, redirect, session, url_for
@@ -92,19 +92,19 @@ def login():
 
 @app.route('/host')
 def host():
-    # 1. Check if the user is logged in as a Coach
+    # 1. Security Check: Only logged-in Coaches can access this
     if not session.get('user_id') or not session.get('is_host'):
-        return redirect(url_for('host_auth')) # Redirect to host login if not authenticated
+        return redirect(url_for('host_auth'))
 
     user_id = session['user_id']
     
-    # 2. Look for an existing permanent PIN for this host
+    # 2. PIN Management: Look for an existing permanent PIN for this coach
     existing_lobby = Lobby.query.filter_by(host_id=user_id, is_active=True).first()
     
     if existing_lobby:
         pin = existing_lobby.pin
     else:
-        # 3. Generate a new permanent PIN if they don't have one
+        # Generate a new permanent PIN if they don't have one
         pin = ''.join(random.choices(string.digits, k=4))
         while Lobby.query.filter_by(pin=pin).first():
             pin = ''.join(random.choices(string.digits, k=4))
@@ -113,16 +113,20 @@ def host():
         db.session.add(new_lobby)
         db.session.commit()
 
-    # 4. Initialize the live game state in memory
+    # 3. Live State: Initialize the game state in memory if it doesn't exist
     if pin not in active_games:
         active_games[pin] = {
             "players": [], 
             "current_q": -1, 
             "state": "LOBBY",
-            "scores": {} 
+            "scores": {},
+            "questions": [] # Will be populated when quiz is selected
         }
+
+    # 4. Data Loading: Fetch this coach's saved quizzes for the dropdown
+    my_quizzes = QuestionSet.query.filter_by(host_id=user_id).all()
     
-    return render_template('host.html', pin=pin)
+    return render_template('host.html', pin=pin, quizzes=my_quizzes)
 
 @app.route('/host/auth', methods=['GET', 'POST'])
 def host_auth():
@@ -164,7 +168,9 @@ def on_join(data):
     nickname = data.get('nickname')
     pin = data.get('pin')
 
+    # UPDATED: Check if PIN exists and send error if it doesn't
     if not pin or pin not in active_games:
+        emit('join_error', {"message": "INVALID SESSION PIN"}) # Send only to the sender
         return
 
     join_room(pin)
@@ -193,55 +199,49 @@ def on_join(data):
 # Inside app.py
 
 @socketio.on('start_quiz')
-def handle_start(pin):
+def handle_start(data):
+    pin = data.get('pin')
+    set_id = data.get('set_id') # New: The ID of the selected quiz
+
     if pin not in active_games:
         return
-        
+
     room = active_games[pin]
-    
-    # NEW: Check if a timer is already active to prevent double-triggering
-    if room.get("timer_active"):
-        print(f"DEBUG: Timer already running for {pin}. Ignoring request.")
-        return
+    if room.get("timer_active"): return
+
+    # NEW: If this is the first question, load the selected quiz into the room
+    if room["current_q"] == -1:
+        quiz_set = QuestionSet.query.get(set_id)
+        if not quiz_set: return
+
+        # Convert DB questions to the format the game expects
+        room["questions"] = []
+        for q in quiz_set.questions:
+            room["questions"].append({
+                "text": q.text,
+                "options": [q.option_a, q.option_b, q.option_c, q.option_d],
+                "correct": q.correct_index
+            })
 
     room["current_q"] += 1
-    
-    if room["current_q"] < len(QUESTIONS):
+
+    if room["current_q"] < len(room["questions"]):
         room["state"] = "QUESTION"
-        room["timer_active"] = True  # Set flag to True
-        q_data = QUESTIONS[room["current_q"]]
-        
+        room["timer_active"] = True
+        q_data = room["questions"][room["current_q"]]
+
         emit('new_question', {
             "question": q_data["text"],
             "options": q_data["options"],
             "q_index": room["current_q"],
             "time_limit": 15
         }, to=pin)
-        
+
         threading.Thread(target=run_timer, args=(pin, 15)).start()
     else:
         room["state"] = "FINAL"
-        leaderboard_data = get_leaderboard(pin)
+        emit('game_over', {"leaderboard": get_leaderboard(pin)}, to=pin)
 
-    # --- NEW: SAVE TO DATABASE ---
-        current_month = datetime.utcnow().strftime('%Y-%m') # e.g., "2026-02"
-
-    for entry in leaderboard_data:
-        # Find the user in the DB by nickname
-        user = User.query.filter_by(nickname=entry['nickname']).first()
-        if user and not user.is_guest:
-            # Add score to their permanent record
-            new_score = Score(
-                user_id=user.id,
-                points=entry['score'],
-                month_year=current_month
-            )
-            db.session.add(new_score)
-
-    db.session.commit()
-    # -----------------------------
-
-    emit('game_over', {"leaderboard": leaderboard_data}, to=pin)
 
 def run_timer(pin, seconds):
     for i in range(seconds, -1, -1):
@@ -280,6 +280,46 @@ def get_leaderboard(pin):
     # Sort players by score descending
     sorted_scores = sorted(room["scores"].items(), key=lambda x: x[1], reverse=True)
     return [{"nickname": name, "score": score} for name, score in sorted_scores]
+
+@app.route('/host/editor', methods=['GET', 'POST'])
+def question_editor():
+    if not session.get('user_id') or not session.get('is_host'):
+        return redirect(url_for('host_auth'))
+
+    user_id = session['user_id']
+
+    if request.method == 'POST':
+        title = request.form.get('quiz_title')
+        new_set = QuestionSet(title=title, host_id=user_id)
+        db.session.add(new_set)
+        db.session.flush() # Gets the ID for the new set
+
+        # Logic to extract multiple questions from the form
+        texts = request.form.getlist('q_text[]')
+        opts_a = request.form.getlist('q_a[]')
+        opts_b = request.form.getlist('q_b[]')
+        opts_c = request.form.getlist('q_c[]')
+        opts_d = request.form.getlist('q_d[]')
+        corrects = request.form.getlist('q_correct[]')
+
+        for i in range(len(texts)):
+            q = Question(
+                set_id=new_set.id,
+                text=texts[i],
+                option_a=opts_a[i],
+                option_b=opts_b[i],
+                option_c=opts_c[i],
+                option_d=opts_d[i],
+                correct_index=int(corrects[i])
+            )
+            db.session.add(q)
+        
+        db.session.commit()
+        return redirect(url_for('host'))
+
+    # Get existing sets to display
+    my_sets = QuestionSet.query.filter_by(host_id=user_id).all()
+    return render_template('editor.html', sets=my_sets)
 
 @app.route('/leaderboard')
 def global_leaderboard():

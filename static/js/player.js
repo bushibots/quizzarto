@@ -19,19 +19,40 @@ function joinGame() {
 }
 
 socket.on('new_question', (data) => {
-    const main = document.querySelector('body');
+    // Target the specific join-screen container instead of the whole body
+    const main = document.getElementById('join-screen');
+    if (!main) return;
+
     main.innerHTML = `
-        <div class="min-h-screen flex flex-col p-6 max-w-md mx-auto justify-center">
-            <p id="status" class="text-center text-slate-500 uppercase tracking-widest text-xs mb-8 font-bold">Select an Answer</p>
+        <div class="flex flex-col justify-center">
+            <h2 class="text-2xl font-black text-cyan-400 mb-6 text-center italic tracking-tighter">
+                ${data.question}
+            </h2>
+            
+            <p id="status" class="text-center text-slate-500 uppercase tracking-widest text-[10px] mb-8 font-bold">
+                Select Authorized Response
+            </p>
+            
             <div class="grid grid-cols-1 gap-4">
                 ${data.options.map((opt, i) => `
-                    <button onclick="submitAnswer(${i})" class="w-full border-2 border-slate-800 py-8 text-2xl font-black hover:border-cyan-500 transition-all active:scale-95">
+                    <button onclick="submitAnswer(${i})" class="w-full border-2 border-slate-800 py-6 text-xl font-black hover:border-cyan-500 transition-all active:scale-95 text-white bg-slate-900/50">
                         ${["A", "B", "C", "D"][i]}
                     </button>
                 `).join('')}
             </div>
         </div>
     `;
+});
+
+socket.on('join_error', (data) => {
+    // Find the PIN input and turn it red/show error
+    const pinInput = document.getElementById('pin');
+    pinInput.classList.add('border-red-500');
+    pinInput.value = "";
+    pinInput.placeholder = data.message;
+    
+    // Reset the button state if needed
+    alert(data.message); 
 });
 
 function submitAnswer(idx) {

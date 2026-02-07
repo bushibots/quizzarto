@@ -5,7 +5,13 @@ const gamePin = document.getElementById('game-pin').innerText;
 socket.emit('join', { nickname: 'HOST', pin: gamePin });
 
 function startQuiz() {
-    socket.emit('start_quiz', gamePin);
+    const quizId = document.getElementById('quiz-select').value;
+    if (!quizId) {
+        alert("Please select or create a quiz first.");
+        return;
+    }
+    // Send both the PIN and the selected Quiz ID
+    socket.emit('start_quiz', { pin: gamePin, set_id: quizId });
 }
 
 socket.on('update_lobby', (players) => {
